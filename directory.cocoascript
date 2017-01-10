@@ -1,0 +1,129 @@
+var dir = {
+  fileManager: NSFileManager.defaultManager(),
+  /* Get icon directory */
+  getURL: function() {
+    // Create the file browser and configure to allow directories
+    var openPanel = NSOpenPanel.openPanel();
+    openPanel.setTitle( "Choose folder with icons" );
+    openPanel.setCanChooseFiles(false);
+    openPanel.setCanChooseDirectories(true);
+
+    // Save the URL of the directory
+    var openPanelButtonPressed = openPanel.runModal();
+    if (openPanelButtonPressed == NSFileHandlingPanelOKButton) {
+        this.url = openPanel.URL();
+    }
+  },
+
+  /* Returns the contents of a directory as an array of NSURLs */
+  getContents: function(url) {
+    var contents = this.fileManager.contentsOfDirectoryAtURL_includingPropertiesForKeys_options_error(this.dirURL,nil,nil,nil);
+    return contents;
+  },
+
+  /* Take an NSURL and returns the file name without the extension */
+  getFileName: function (url) {
+    fileName = url.lastPathComponent().stringByDeletingPathExtension();
+    return fileName;
+  },
+
+  /* Takes an array of NSURLs and returns a new array with only SVG and directory NSURLs */
+  getSVGAndDirectoriesOnly: function(dirArray){
+    var cleanDir = NSMutableArray.alloc().init(); // New array
+    for (i=0; i<dirArray.count(); i++){
+        var url = dirArray[i]; // Current file NSURL
+        if(this.isSVG(url) || this.isDirectory(url)){
+            cleanDir.push(url);
+        }
+    }
+    return cleanDir;
+  },
+
+  /* Takes an array of NSURLs and returns an array with only SVG NSURLs */
+  getSVGFiles: function(dirArray) {
+    var cleanArray = NSMutableArray.alloc().init(); // New array
+
+    // Iterate through passed array and add only SVG files to new array
+    for (var i=0; i<dirArray.count(); i++) {
+      var file = dirArray[i]; // Current file NSURL
+      if (file.pathExtension() == "svg") {
+          cleanArray.addObject(file);
+      }
+    }
+    // Returns an array with only SVG files
+    return cleanArray;
+  },
+
+  /* Checks an NSURL and returns BOOL for wether it's an SVG file*/
+  isSVG: function(url) {
+    var isSVG;
+    if(url.pathExtension() == "svg") {
+        isSVG = true;
+    }
+    else { isSVG = false; }
+    return isSVG;
+  },
+
+  /* Checks an NSURL and returns BOOL for whether it's a directory */
+  isDirectory: function(url) {
+      var fileString = url.toString();
+      var isDirectory = fileString.hasSuffix('/');
+      return isDirectory;
+  },
+
+  /* Takes a directory NSURL and adds its subdirectories to dir.files */
+  createSubDirArray: function() {
+      if (!(this.files = NSMutableArray.alloc().init())) {
+        this.files = NSMutableArray.alloc().init();
+      }
+      for (var i=0; i < this.contents.count(); i++) {
+          var url = this.contents[i];
+          if (this.isDirectory(url)) {
+              var name = this.getFileName(url);
+              this.files.push(name);
+          }
+      }
+  },
+
+  /* WARNING: Recursive function
+  ** Takes a directory NSURL and adds the file names to each child */
+  buildDict: function(dirURL) {
+        var contents = this.getContents(dirURL); // Array of NSURLs
+        var dict = NSMutableDictionary.alloc().init();
+
+        // Give each file in directory a 'name', 'url' (and 'contents') keys
+        for (var i=0; i<contents.count(); i++){
+            var fileURL = contents[i];
+            var name = this.getFileName(fileURL);
+            var lowercaseName = name.toString().lowercaseString();
+
+            // Add blank object for the 'name' key
+            dict.setObject_forKey(NSMutableDictionary.alloc().init(),lowercaseName);
+
+            var entry = dict.objectForKey(lowercaseName);
+            entry.setObject_forKey(fileURL,"url");
+            entry.setObject_forKey(name,"name");
+            entry.setObject_forKey("icon","type");
+
+            // IF the NSURL is a directory, then recursively build dictionary
+            if (this.isDirectory(fileURL)) {
+                var newContents = this.buildDict(fileURL);
+                entry.setObject_forKey(newContents,"contents");
+                entry.type = "group";
+            }
+        }
+        return dict;
+  }
+}
+
+}
+
+/* Takes a string with format '######' and converts to NSColor object */
+function hexToColor ( hex ) {
+	var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec( hex ),
+		red   = parseInt(result[1], 16) / 255,
+		green = parseInt(result[2], 16) / 255,
+		blue  = parseInt(result[3], 16) / 255,
+		alpha = 1;
+    return NSColor.colorWithCalibratedRed_green_blue_alpha( red, green, blue, alpha )
+}

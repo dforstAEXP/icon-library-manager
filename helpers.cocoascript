@@ -1,0 +1,109 @@
+function getURL () {
+  // Create the file browser and configure to allow directories
+  var openPanel = NSOpenPanel.openPanel();
+  openPanel.setTitle( "Choose folder with icons" );
+  openPanel.setCanChooseFiles(false);
+  openPanel.setCanChooseDirectories(true);
+
+  // Save the URL of the directory
+  var openPanelButtonPressed = openPanel.runModal();
+  if (openPanelButtonPressed == NSFileHandlingPanelOKButton) {
+      var url = openPanel.URL();
+      return url;
+  }
+}
+
+/* Returns the contents of a directory as an array of NSURLs */
+function getContents(url) {
+  var fileManager = NSFileManager.defaultManager();
+  var contents = fileManager.contentsOfDirectoryAtURL_includingPropertiesForKeys_options_error(url,nil,nil,nil);
+  return contents;
+}
+
+/* Take an NSURL and returns the file name without the extension */
+function getFileName (url) {
+  fileName = url.lastPathComponent().stringByDeletingPathExtension();
+  return fileName;
+}
+
+/* Takes an array of NSURLs and returns a new array with only SVG and directory NSURLs */
+function getSVGAndDirectoriesOnly(dirArray){
+  var cleanDir = NSMutableArray.alloc().init(); // New array
+  for (i=0; i<dirArray.count(); i++){
+      var url = dirArray[i]; // Current file NSURL
+      if(isSVG(url) || isDirectory(url)){
+          cleanDir.push(url);
+      }
+  }
+  return cleanDir;
+}
+
+/* Takes an array of NSURLs and returns an array with only SVG NSURLs */
+function getSVGFiles(dirArray) {
+  var cleanArray = NSMutableArray.alloc().init(); // New array
+
+  // Iterate through passed array and add only SVG files to new array
+  for (var i=0; i<dirArray.count(); i++) {
+    var file = dirArray[i]; // Current file NSURL
+    if (file.pathExtension() == "svg") {
+        cleanArray.addObject(file);
+    }
+  }
+  // Returns an array with only SVG files
+  return cleanArray;
+}
+
+/* Checks an NSURL and returns BOOL for wether it's an SVG file*/
+function isSVG(url) {
+  var isSVG = (url.pathExtension() == "svg");
+  return isSVG;
+}
+
+/* Checks an NSURL and returns BOOL for whether it's a directory */
+function isDirectory(url) {
+    var fileString = url.toString();
+    var isDirectory = fileString.hasSuffix('/');
+    return isDirectory;
+}
+
+/* WARNING: Recursive function
+** Takes a directory NSURL and adds the file names to each child */
+function buildDict(dirURL) {
+    var contents = getContents(dirURL); // Array of NSURLs
+    var dict = NSMutableDictionary.alloc().init();
+
+    // Give each file in directory a 'name', 'url' (and 'contents') keys
+    for (var i=0; i<contents.count(); i++){
+        var fileURL = contents[i];
+        if (isSVG(fileURL) || isDirectory(fileURL)) {
+          var name = getFileName(fileURL);
+          var lowercaseName = name.toString().lowercaseString();
+
+          // Add blank object for the 'name' key
+          dict.setObject_forKey(NSMutableDictionary.alloc().init(),lowercaseName);
+
+          var entry = dict.objectForKey(lowercaseName);
+          entry.setObject_forKey(fileURL,"url");
+          entry.setObject_forKey(name,"name");
+          entry.setObject_forKey("icon","type");
+
+          // IF the NSURL is a directory, then recursively build dictionary
+          if (isDirectory(fileURL)) {
+              var newContents = buildDict(fileURL);
+              entry.setObject_forKey(newContents,"contents");
+              entry.type = "group";
+          }
+        }
+    }
+    return dict;
+}
+
+/* Takes a string with format '######' and converts to NSColor object */
+function hexToColor ( hex ) {
+	var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec( hex ),
+		red   = parseInt(result[1], 16) / 255,
+		green = parseInt(result[2], 16) / 255,
+		blue  = parseInt(result[3], 16) / 255,
+		alpha = 1;
+    return NSColor.colorWithCalibratedRed_green_blue_alpha( red, green, blue, alpha )
+}

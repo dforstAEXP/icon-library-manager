@@ -1,0 +1,189 @@
+@import './helpers.cocoascript';
+
+/* Global variables */
+
+var onRun = function (context) {
+  var fileManager = NSFileManager.defaultManager();
+  // var sketch = context.api();
+  addBoard(context);
+  // createHeader(context);
+  var directory = getURL(context);
+  var contents = buildDict(directory);
+  addDictionary(context,contents,50,120);
+  removeDuplicativeGroups(context);
+}
+
+/* Create a page to house the icons */
+var addPage = function(context) {
+  var doc = context.document;
+  var newPage = doc.addBlankPage();
+  newPage.name = "Icons";
+}
+
+/* Create a new board for your icons */
+var addBoard = function (context) {
+  var doc = context.document;
+  // Create a new artboard and name it
+  var artboard = MSArtboardGroup.new();
+  artboard.name = "Icons";
+
+  //Set the size of the artboard
+  var artboardFrame = artboard.frame();
+  artboardFrame.setWidth(1800);
+  artboardFrame.setHeight(3700);
+  artboardFrame.setX(0);
+  artboardFrame.setY(0);
+
+  //Add the artboard to the page
+  doc.currentPage().addLayers([artboard]);
+}
+
+/* Give your page a header */
+var createHeader = function (text, x, y) {
+
+  // Create the text layer and set font
+  var header = MSTextLayer.alloc().init();
+  header.setStringValue("Icons");
+  header.setFontSize(50);
+  header.setFontPostscriptName("BentonSans Light");
+  // title.setTextColor() [Need to figure out how to set text color]
+
+  // Position text layer
+  var frame = header.frame();
+  frame.setX(x);
+  frame.setY(y);
+
+  // Add layer to board
+  return header;
+}
+
+var createGroupHeader = function (text, x, y) {
+  // Make the text uppercase
+  var name = NSString.alloc().initWithString(text);
+  name = name.uppercaseString();
+
+  // Create the text layer that will be added
+  var header = MSTextLayer.alloc().init();
+  header.name = name;
+  header.setTextBehaviour(1); // lets text wrap to frame width?
+  var frame = header.frame();
+  frame.setX(x);
+  frame.setY(y);
+  frame.setWidth(200);
+  header.setStringValue(name);
+  header.setFontSize(15);
+  header.setFontPostscriptName('HelveticaNeue Medium')
+  return header;
+}
+
+var createSVGLayer = function (url, name, x, y) {
+  var svgImporter = MSSVGImporter.svgImporter();
+  svgImporter.prepareToImportFromURL(url);
+  var svg = svgImporter.importAsLayer();
+  svg.name = name;
+  var frame = svg.frame();
+  frame.setX(x);
+  frame.setY(y);
+  /* TO-DO: Replace below with group */
+  // Add the file as a layer to the artboard
+  return svg;
+
+  // var svgLabel = createLabel(name, x, y+68);
+  // board.addLayer(svgLabel);
+  // board.deselectAllLayers();
+}
+
+var createLabel = function (text, x, y) {
+  var label = MSTextLayer.alloc().init();
+  label.name = text;
+  label.setTextBehaviour(1); // lets text wrap to frame width?
+  var frame = label.frame();
+  frame.setX(x);
+  frame.setY(y);
+  frame.setWidth(120);
+  label.setStringValue(text);
+  label.setFontSize(15);
+  label.setFontPostscriptName('HelveticaNeue Medium')
+  label.setTextAlignment(2); // center aligned
+  return label;
+}
+
+var importIcons = function(context, svgArr) {
+  var doc = context.document;
+  // Set the initial (x,y)
+  var x=40, y=120;
+  var page = doc.pages()[0];
+  var board = page.artboards()[0];
+
+  // Loop through the directory and add each icon as a layer
+  for (var i=0; i<svgArr.count(); i++) {
+      svg = svgArr[i];
+      var name = getFileName(svg);
+      addSVGAsLayer(board,svg,name,x,y);
+
+      // Select the last imported layer and remove duplicative groups
+      //removeDuplicativeGroups();
+
+      // Move the x location for next group
+      if (x < 500) {
+        x += 58;
+      }
+      else {
+        x = 50;
+        y+= 161;
+      }
+  }
+}
+
+var removeDuplicativeGroups = function(context) {
+  var doc = context.document;
+  var page = doc.pages()[0];
+  var board = page.artboards()[0];
+  var layers = board.layers();
+  var layer;
+  var child;
+
+  for (var i=0; i<layers.count(); i++){
+    layer = layers[i];
+    child = layer.containsOneLayer();
+    while(layer.class() == MSLayerGroup && child) {
+        child = layer.layers()[0];
+        layer.ungroup();
+        layer = child;
+        if(layer.containsOneLayer()) {
+            child = layer.layers()[0];
+        }
+        else { child = false; }
+    }
+  }
+}
+
+var addDictionary =function(context, dict, x, y){
+    var doc = context.document;
+    var page = doc.pages()[0];
+    var board = page.artboards()[0];
+    var keys = dict.allKeys().sortedArray();
+    for (var i=0; i<keys.count(); i++) {
+        var key = keys[i];
+        if (dict[key].type == "group") {
+            x = 50;
+            var header = createGroupHeader(dict[key].name,x,y);
+            board.addLayer(header);
+            y += 58;
+            var dict2 = dict[key].contents;
+            addDictionary(context, dict2, x, y);
+            y = board.layers()[board.layers().count()-1].origin().y+116;
+          }
+          else if (dict[key].type == "icon"){
+              if (x>1600) {
+                x=50;
+                y+=144;
+              };
+              var svg = createSVGLayer(dict[key].url,dict[key].name,x+36,y);
+              var label = createLabel(dict[key].name,x,y+68);
+              board.addLayer(svg);
+              board.addLayer(label);
+              x+=140;
+        }
+    }
+}

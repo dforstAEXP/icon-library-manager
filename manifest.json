@@ -1,0 +1,25 @@
+{
+  "name": "Icon Library Manager",
+  "description": "Autoimport a directory of SVG icons",
+  "author": "Danny Forst",
+  "homepage": "https://design.aexp.com/language",
+  "version": "1.0",
+  "identifier": "danny.forst.icon-library-manager",
+  "compatibleVersion": "41.2",
+  "bundleVersion": 1,
+  "commands" : [
+    {
+      "name" : "Import Icons",
+      "identifier" : "import",
+      "script" : "icon-library-manager.cocoascript",
+      "handler" : "onRun",
+      "shortcut" : "ctrl cmd l"
+    }
+  ],
+  "menu": {
+    "title": "Icon Library Manager",
+    "items": [
+      "import"
+    ]
+  }
+}
